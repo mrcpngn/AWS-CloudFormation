@@ -1,0 +1,545 @@
+Description: NAT Gateway Architecture
+Mappings:
+  RegionMap:
+    us-east-1:
+      x64: "ami-04cb4ca688797756f"
+      arm: "ami-04249813e163e2cb8"
+Resources:
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.16.0.0/16
+      EnableDnsHostnames: true
+      EnableDnsSupport: true
+      Tags: 
+        - Key: Name
+          Value: !Sub ORG-vpc1
+  IPv6CidrBlock:
+    Type: AWS::EC2::VPCCidrBlock
+    Properties:
+      VpcId: !Ref VPC
+      AmazonProvidedIpv6CidrBlock: true
+  SubnetReservedA:
+    Type: AWS::EC2::Subnet
+    DependsOn: IPv6CidrBlock
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select [ 0, !GetAZs '' ]
+      CidrBlock: !Select [0, !Cidr [ !GetAtt VPC.CidrBlock, 16, 12 ]]
+      AssignIpv6AddressOnCreation: true
+      Ipv6CidrBlock: 
+        Fn::Sub:
+          - "${VpcPart}${SubnetPart}"
+          - SubnetPart: '00::/64'
+            VpcPart: !Select [ 0, !Split [ '00::/56', !Select [ 0, !GetAtt VPC.Ipv6CidrBlocks ]]]
+      Tags:
+        - Key: Name
+          Value: sn-reserved-A
+  SubnetReservedB:
+    Type: AWS::EC2::Subnet
+    DependsOn: IPv6CidrBlock
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select [ 1, !GetAZs '' ]
+      CidrBlock: !Select [4, !Cidr [ !GetAtt VPC.CidrBlock, 16, 12 ]]
+      AssignIpv6AddressOnCreation: true
+      Ipv6CidrBlock: 
+        Fn::Sub:
+          - "${VpcPart}${SubnetPart}"
+          - SubnetPart: '04::/64'
+            VpcPart: !Select [ 0, !Split [ '00::/56', !Select [ 0, !GetAtt VPC.Ipv6CidrBlocks ]]]
+      Tags:
+        - Key: Name
+          Value: sn-reserved-B
+  SubnetReservedC:
+    Type: AWS::EC2::Subnet
+    DependsOn: IPv6CidrBlock
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select [ 2, !GetAZs '' ]
+      CidrBlock: !Select [8, !Cidr [ !GetAtt VPC.CidrBlock, 16, 12 ]]
+      AssignIpv6AddressOnCreation: true
+      Ipv6CidrBlock: 
+        Fn::Sub:
+          - "${VpcPart}${SubnetPart}"
+          - SubnetPart: '08::/64'
+            VpcPart: !Select [ 0, !Split [ '00::/56', !Select [ 0, !GetAtt VPC.Ipv6CidrBlocks ]]]
+      Tags:
+        - Key: Name
+          Value: sn-reserved-C
+  SubnetDBA:
+    Type: AWS::EC2::Subnet
+    DependsOn: IPv6CidrBlock
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select [ 0, !GetAZs '' ]
+      CidrBlock: !Select [1, !Cidr [ !GetAtt VPC.CidrBlock, 16, 12 ]]
+      AssignIpv6AddressOnCreation: true
+      Ipv6CidrBlock: 
+        Fn::Sub:
+          - "${VpcPart}${SubnetPart}"
+          - SubnetPart: '01::/64'
+            VpcPart: !Select [ 0, !Split [ '00::/56', !Select [ 0, !GetAtt VPC.Ipv6CidrBlocks ]]]
+      Tags:
+        - Key: Name
+          Value: sn-db-A
+  SubnetDBB:
+    Type: AWS::EC2::Subnet
+    DependsOn: IPv6CidrBlock
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select [ 1, !GetAZs '' ]
+      CidrBlock: !Select [5, !Cidr [ !GetAtt VPC.CidrBlock, 16, 12 ]]
+      AssignIpv6AddressOnCreation: true
+      Ipv6CidrBlock: 
+        Fn::Sub:
+          - "${VpcPart}${SubnetPart}"
+          - SubnetPart: '05::/64'
+            VpcPart: !Select [ 0, !Split [ '00::/56', !Select [ 0, !GetAtt VPC.Ipv6CidrBlocks ]]]
+      Tags:
+        - Key: Name
+          Value: sn-db-B
+  SubnetDBC:
+    Type: AWS::EC2::Subnet
+    DependsOn: IPv6CidrBlock
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select [ 2, !GetAZs '' ]
+      CidrBlock: !Select [9, !Cidr [ !GetAtt VPC.CidrBlock, 16, 12 ]]
+      AssignIpv6AddressOnCreation: true
+      Ipv6CidrBlock: 
+        Fn::Sub:
+          - "${VpcPart}${SubnetPart}"
+          - SubnetPart: '09::/64'
+            VpcPart: !Select [ 0, !Split [ '00::/56', !Select [ 0, !GetAtt VPC.Ipv6CidrBlocks ]]]
+      Tags:
+        - Key: Name
+          Value: sn-db-C
+  SubnetAPPA:
+    Type: AWS::EC2::Subnet
+    DependsOn: IPv6CidrBlock
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select [ 0, !GetAZs '' ]
+      CidrBlock: !Select [2, !Cidr [ !GetAtt VPC.CidrBlock, 16, 12 ]]
+      AssignIpv6AddressOnCreation: true
+      Ipv6CidrBlock: 
+        Fn::Sub:
+          - "${VpcPart}${SubnetPart}"
+          - SubnetPart: '02::/64'
+            VpcPart: !Select [ 0, !Split [ '00::/56', !Select [ 0, !GetAtt VPC.Ipv6CidrBlocks ]]]
+      Tags:
+        - Key: Name
+          Value: sn-app-A
+  SubnetAPPB:
+    Type: AWS::EC2::Subnet
+    DependsOn: IPv6CidrBlock
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select [ 1, !GetAZs '' ]
+      CidrBlock: !Select [6, !Cidr [ !GetAtt VPC.CidrBlock, 16, 12 ]]
+      AssignIpv6AddressOnCreation: true
+      Ipv6CidrBlock: 
+        Fn::Sub:
+          - "${VpcPart}${SubnetPart}"
+          - SubnetPart: '06::/64'
+            VpcPart: !Select [ 0, !Split [ '00::/56', !Select [ 0, !GetAtt VPC.Ipv6CidrBlocks ]]]
+      Tags:
+        - Key: Name
+          Value: sn-app-B
+  SubnetAPPC:
+    Type: AWS::EC2::Subnet
+    DependsOn: IPv6CidrBlock
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select [ 2, !GetAZs '' ]
+      CidrBlock: !Select [10, !Cidr [ !GetAtt VPC.CidrBlock, 16, 12 ]]
+      AssignIpv6AddressOnCreation: true
+      Ipv6CidrBlock: 
+        Fn::Sub:
+          - "${VpcPart}${SubnetPart}"
+          - SubnetPart: '0A::/64'
+            VpcPart: !Select [ 0, !Split [ '00::/56', !Select [ 0, !GetAtt VPC.Ipv6CidrBlocks ]]]
+      Tags:
+        - Key: Name
+          Value: sn-app-C
+  SubnetWEBA:
+    Type: AWS::EC2::Subnet
+    DependsOn: IPv6CidrBlock
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select [ 0, !GetAZs '' ]
+      CidrBlock: !Select [3, !Cidr [ !GetAtt VPC.CidrBlock, 16, 12 ]]
+      MapPublicIpOnLaunch: true
+      Ipv6CidrBlock: 
+        Fn::Sub:
+          - "${VpcPart}${SubnetPart}"
+          - SubnetPart: '03::/64'
+            VpcPart: !Select [ 0, !Split [ '00::/56', !Select [ 0, !GetAtt VPC.Ipv6CidrBlocks ]]]
+      Tags:
+        - Key: Name
+          Value: sn-web-A
+  SubnetWEBB:
+    Type: AWS::EC2::Subnet
+    DependsOn: IPv6CidrBlock
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select [ 1, !GetAZs '' ]
+      CidrBlock: !Select [7, !Cidr [ !GetAtt VPC.CidrBlock, 16, 12 ]]
+      MapPublicIpOnLaunch: true
+      Ipv6CidrBlock: 
+        Fn::Sub:
+          - "${VpcPart}${SubnetPart}"
+          - SubnetPart: '07::/64'
+            VpcPart: !Select [ 0, !Split [ '00::/56', !Select [ 0, !GetAtt VPC.Ipv6CidrBlocks ]]]
+      Tags:
+        - Key: Name
+          Value: sn-web-B
+  SubnetWEBC:
+    Type: AWS::EC2::Subnet
+    DependsOn: IPv6CidrBlock
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select [ 2, !GetAZs '' ]
+      CidrBlock: !Select [11, !Cidr [ !GetAtt VPC.CidrBlock, 16, 12 ]]
+      MapPublicIpOnLaunch: true
+      Ipv6CidrBlock: 
+        Fn::Sub:
+          - "${VpcPart}${SubnetPart}"
+          - SubnetPart: '0B::/64'
+            VpcPart: !Select [ 0, !Split [ '00::/56', !Select [ 0, !GetAtt VPC.Ipv6CidrBlocks ]]]
+      Tags:
+        - Key: Name
+          Value: sn-web-C
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+      - Key: Name
+        Value: ORG-vpc1-igw
+  InternetGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties: 
+      InternetGatewayId: !Ref InternetGateway
+      VpcId: !Ref VPC
+  RouteTableWeb:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+      - Key: Name
+        Value: ORG-vpc1-rt-web
+  RouteTableAssociationSubnetWEBA:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    DependsOn: RouteTableWeb
+    Properties:
+      SubnetId:
+        Ref: SubnetWEBA
+      RouteTableId:
+        Ref: RouteTableWeb
+  RouteTableAssociationSubnetWEBB:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    DependsOn: RouteTableWeb
+    Properties:
+      SubnetId:
+        Ref: SubnetWEBB
+      RouteTableId:
+        Ref: RouteTableWeb
+  RouteTableAssociationSubnetWEBC:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    DependsOn: RouteTableWeb
+    Properties:
+      SubnetId:
+        Ref: SubnetWEBC
+      RouteTableId:
+        Ref: RouteTableWeb
+  RouteTableWebDefaultIPv4: 
+    Type: AWS::EC2::Route
+    DependsOn: InternetGatewayAttachment
+    Properties:
+      RouteTableId: !Ref RouteTableWeb
+      DestinationCidrBlock: '0.0.0.0/0'
+      GatewayId: !Ref InternetGateway
+  RouteTableWebDefaultIPv6: 
+    Type: 'AWS::EC2::Route'
+    DependsOn: InternetGatewayAttachment
+    Properties:
+      RouteTableId: !Ref RouteTableWeb
+      DestinationIpv6CidrBlock: '::/0'
+      GatewayId: !Ref InternetGateway
+  InstanceSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      VpcId: !Ref VPC
+      GroupDescription: Enable SSH access via port 22 IPv4 & v6
+      SecurityGroupIngress:
+        - Description: Allow SSH IPv4 IN
+          IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+        - Description: Allow SSH IPv6 IN
+          IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIpv6: ::/0
+  InstanceSecurityGroupSelfReferenceRule:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId: !Ref InstanceSecurityGroup
+      IpProtocol: -1
+      SourceSecurityGroupId: !Ref InstanceSecurityGroup
+  EC2InstanceTEST:
+    Type: AWS::EC2::Instance
+    DependsOn: 
+      - ssminterfaceendpoint
+      - ssmec2messagesinterfaceendpoint
+      - ssmmessagesinterfaceendpoint
+    Properties:
+      InstanceType: t2.micro
+      ImageId: !FindInMap [RegionMap, !Ref 'AWS::Region', x64]
+      IamInstanceProfile: !Ref SessionManagerInstanceProfile
+      SubnetId: !Ref SubnetAPPA
+      SecurityGroupIds: 
+        - !Ref InstanceSecurityGroup
+      Tags: 
+        - Key: Name
+          Value: ORG-EC2-INTERNAL
+  SessionManagerInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Path: /
+      Roles:
+        - Ref: SessionManagerRole
+  SessionManagerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+  ssminterfaceendpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      VpcEndpointType: Interface
+      PrivateDnsEnabled: true
+      SubnetIds:
+        - !Ref SubnetAPPA
+        - !Ref SubnetAPPB
+        - !Ref SubnetAPPC
+      SecurityGroupIds:
+        - !Ref InstanceSecurityGroup
+      ServiceName: !Sub com.amazonaws.${AWS::Region}.ssm
+      VpcId: !Ref VPC
+  ssmec2messagesinterfaceendpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      VpcEndpointType: Interface
+      PrivateDnsEnabled: true
+      SubnetIds:
+        - !Ref SubnetAPPA
+        - !Ref SubnetAPPB
+        - !Ref SubnetAPPC
+      SecurityGroupIds:
+        - !Ref InstanceSecurityGroup
+      ServiceName: !Sub com.amazonaws.${AWS::Region}.ec2messages
+      VpcId: !Ref VPC
+  ssmmessagesinterfaceendpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      VpcEndpointType: Interface
+      PrivateDnsEnabled: true
+      SubnetIds:
+        - !Ref SubnetAPPA
+        - !Ref SubnetAPPB
+        - !Ref SubnetAPPC
+      SecurityGroupIds:
+        - !Ref InstanceSecurityGroup
+      ServiceName: !Sub com.amazonaws.${AWS::Region}.ssmmessages
+      VpcId: !Ref VPC
+  RouteTablePrivateA:
+    Type: AWS::EC2::RouteTable
+    DependsOn: VPC
+    Properties:
+      VpcId: !Ref VPC
+      Tags: 
+        - Key: Name
+          Value: !Sub ORG-vpc1-rt-private-A
+  RouteTablePrivateB:
+    Type: AWS::EC2::RouteTable
+    DependsOn: VPC
+    Properties:
+      VpcId: !Ref VPC
+      Tags: 
+        - Key: Name
+          Value: !Sub ORG-vpc1-rt-private-B
+  RouteTablePrivateC:
+    Type: AWS::EC2::RouteTable
+    DependsOn: VPC
+    Properties:
+      VpcId: !Ref VPC
+      Tags: 
+        - Key: Name
+          Value: !Sub ORG-vpc1-rt-private-C
+  EIPNATGatewayWebA:
+    Type: AWS::EC2::EIP
+    DependsOn: RouteTablePrivateA
+    Properties: 
+      Domain: !Ref VPC
+      Tags: 
+        - Key: Name
+          Value: ORG-vpc1-eip-natgw-web-A
+  EIPNATGatewayWebB:
+    Type: AWS::EC2::EIP
+    DependsOn: RouteTablePrivateB
+    Properties: 
+      Domain: !Ref VPC
+      Tags: 
+        - Key: Name
+          Value: ORG-vpc1-eip-natgw-web-B
+  EIPNATGatewayWebC:
+    Type: AWS::EC2::EIP
+    DependsOn: RouteTablePrivateC
+    Properties: 
+      Domain: !Ref VPC
+      Tags: 
+        - Key: Name
+          Value: ORG-vpc1-eip-natgw-web-C
+  NATGatewayWebA:
+    Type: AWS::EC2::NatGateway
+    DependsOn: 
+      - RouteTablePrivateA
+      - EIPNATGatewayWebA
+    Properties: 
+      AllocationId: !GetAtt EIPNATGatewayWebA.AllocationId
+      SubnetId: !Ref SubnetWEBA
+      Tags: 
+        - Key: Name
+          Value: ORG-vpc1-natgw-web-A
+  NATGatewayWebB:
+    Type: AWS::EC2::NatGateway
+    DependsOn: 
+      - RouteTablePrivateB
+      - EIPNATGatewayWebB
+    Properties: 
+      AllocationId: !GetAtt EIPNATGatewayWebB.AllocationId
+      SubnetId: !Ref SubnetWEBB
+      Tags: 
+        - Key: Name
+          Value: ORG-vpc1-natgw-web-B
+  NATGatewayWebC:
+    Type: AWS::EC2::NatGateway
+    DependsOn: 
+      - RouteTablePrivateC
+      - EIPNATGatewayWebC
+    Properties: 
+      AllocationId: !GetAtt EIPNATGatewayWebC.AllocationId
+      SubnetId: !Ref SubnetWEBC
+      Tags: 
+        - Key: Name
+          Value: ORG-vpc1-natgw-web-C
+  RouteTableNATGatewayPrivateADefaultRouteIPv4:
+    Type: AWS::EC2::Route
+    DependsOn: 
+      - RouteTablePrivateA
+      - NATGatewayWebA
+    Properties:
+      RouteTableId: !Ref RouteTablePrivateA
+      NatGatewayId: !Ref NATGatewayWebA
+      DestinationCidrBlock: '0.0.0.0/0'
+  RouteTableNATGatewayPrivateBDefaultRouteIPv4:
+    Type: AWS::EC2::Route
+    DependsOn: 
+      - RouteTablePrivateB
+      - NATGatewayWebB
+    Properties:
+      RouteTableId: !Ref RouteTablePrivateB
+      NatGatewayId: !Ref NATGatewayWebB
+      DestinationCidrBlock: '0.0.0.0/0'
+  RouteTableNATGatewayPrivateCDefaultRouteIPv4:
+    Type: AWS::EC2::Route
+    DependsOn: 
+      - RouteTablePrivateC
+      - NATGatewayWebC
+    Properties:
+      RouteTableId: !Ref RouteTablePrivateC
+      NatGatewayId: !Ref NATGatewayWebC
+      DestinationCidrBlock: '0.0.0.0/0'
+
+  RouteTableAssociationSubnetReservedA:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    DependsOn: RouteTablePrivateA
+    Properties:
+      SubnetId:
+        Ref: SubnetReservedA
+      RouteTableId:
+        Ref: RouteTablePrivateA
+  RouteTableAssociationSubnetReservedB:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    DependsOn: RouteTablePrivateB
+    Properties:
+      SubnetId:
+        Ref: SubnetReservedB
+      RouteTableId:
+        Ref: RouteTablePrivateB
+  RouteTableAssociationSubnetReservedC:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    DependsOn: RouteTablePrivateC
+    Properties:
+      SubnetId:
+        Ref: SubnetReservedC
+      RouteTableId:
+        Ref: RouteTablePrivateC
+  RouteTableAssociationSubnetAPPA:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    DependsOn: RouteTablePrivateA
+    Properties:
+      SubnetId:
+        Ref: SubnetAPPA
+      RouteTableId:
+        Ref: RouteTablePrivateA
+  RouteTableAssociationSubnetAPPB:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    DependsOn: RouteTablePrivateB
+    Properties:
+      SubnetId:
+        Ref: SubnetAPPB
+      RouteTableId:
+        Ref: RouteTablePrivateB
+  RouteTableAssociationSubnetAPPC:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    DependsOn: RouteTablePrivateC
+    Properties:
+      SubnetId:
+        Ref: SubnetAPPC
+      RouteTableId:
+        Ref: RouteTablePrivateC
+  RouteTableAssociationSubnetDBA:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    DependsOn: RouteTablePrivateA
+    Properties:
+      SubnetId:
+        Ref: SubnetDBA
+      RouteTableId:
+        Ref: RouteTablePrivateA
+  RouteTableAssociationSubnetDBB:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    DependsOn: RouteTablePrivateB
+    Properties:
+      SubnetId:
+        Ref: SubnetDBB
+      RouteTableId:
+        Ref: RouteTablePrivateB
+  RouteTableAssociationSubnetDBC:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    DependsOn: RouteTablePrivateC
+    Properties:
+      SubnetId:
+        Ref: SubnetDBC
+      RouteTableId:
+        Ref: RouteTablePrivateC

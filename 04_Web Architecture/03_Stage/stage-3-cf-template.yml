@@ -1,0 +1,541 @@
+Description: Build an RDS instance for the Wordpress instance
+Mappings:
+  RegionMap:
+    us-east-1:
+      x64: "ami-04cb4ca688797756f"
+      arm: "ami-04249813e163e2cb8"
+Parameters:
+  DBUser:
+    Description: The login for the specific wordpress DB.
+    Type: String
+    Default: orgwordpressuser
+  DBName:
+    Description: The name of the wordpress database.
+    Type: String
+    Default: orgwordpressdb
+  DBEndPoint:
+    Description: The endpoint for the wordpress DB.
+    Type: String
+    Default: localhost
+  DBPassword:
+    Description: The password for the DBUser.
+    Type: String
+    NoEcho: true
+  DBRootPassword :
+    Description: The password for the database root user, used for self-managed admin.
+    Type: String
+    NoEcho: true
+Resources:
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.16.0.0/16
+      EnableDnsHostnames: true
+      EnableDnsSupport: true
+      Tags: 
+        - Key: Name
+          Value: !Sub ORG-vpc1
+  IPv6CidrBlock:
+    Type: AWS::EC2::VPCCidrBlock
+    Properties:
+      VpcId: !Ref VPC
+      AmazonProvidedIpv6CidrBlock: true
+  SubnetReservedA:
+    Type: AWS::EC2::Subnet
+    DependsOn: IPv6CidrBlock
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select [ 0, !GetAZs '' ]
+      CidrBlock: !Select [0, !Cidr [ !GetAtt VPC.CidrBlock, 16, 12 ]]
+      AssignIpv6AddressOnCreation: true
+      Ipv6CidrBlock: 
+        Fn::Sub:
+          - "${VpcPart}${SubnetPart}"
+          - SubnetPart: '00::/64'
+            VpcPart: !Select [ 0, !Split [ '00::/56', !Select [ 0, !GetAtt VPC.Ipv6CidrBlocks ]]]
+      Tags:
+        - Key: Name
+          Value: sn-reserved-A
+  SubnetReservedB:
+    Type: AWS::EC2::Subnet
+    DependsOn: IPv6CidrBlock
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select [ 1, !GetAZs '' ]
+      CidrBlock: !Select [4, !Cidr [ !GetAtt VPC.CidrBlock, 16, 12 ]]
+      AssignIpv6AddressOnCreation: true
+      Ipv6CidrBlock: 
+        Fn::Sub:
+          - "${VpcPart}${SubnetPart}"
+          - SubnetPart: '04::/64'
+            VpcPart: !Select [ 0, !Split [ '00::/56', !Select [ 0, !GetAtt VPC.Ipv6CidrBlocks ]]]
+      Tags:
+        - Key: Name
+          Value: sn-reserved-B
+  SubnetReservedC:
+    Type: AWS::EC2::Subnet
+    DependsOn: IPv6CidrBlock
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select [ 2, !GetAZs '' ]
+      CidrBlock: !Select [8, !Cidr [ !GetAtt VPC.CidrBlock, 16, 12 ]]
+      AssignIpv6AddressOnCreation: true
+      Ipv6CidrBlock: 
+        Fn::Sub:
+          - "${VpcPart}${SubnetPart}"
+          - SubnetPart: '08::/64'
+            VpcPart: !Select [ 0, !Split [ '00::/56', !Select [ 0, !GetAtt VPC.Ipv6CidrBlocks ]]]
+      Tags:
+        - Key: Name
+          Value: sn-reserved-C
+  SubnetDBA:
+    Type: AWS::EC2::Subnet
+    DependsOn: IPv6CidrBlock
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select [ 0, !GetAZs '' ]
+      CidrBlock: !Select [1, !Cidr [ !GetAtt VPC.CidrBlock, 16, 12 ]]
+      AssignIpv6AddressOnCreation: true
+      Ipv6CidrBlock: 
+        Fn::Sub:
+          - "${VpcPart}${SubnetPart}"
+          - SubnetPart: '01::/64'
+            VpcPart: !Select [ 0, !Split [ '00::/56', !Select [ 0, !GetAtt VPC.Ipv6CidrBlocks ]]]
+      Tags:
+        - Key: Name
+          Value: sn-db-A
+  SubnetDBB:
+    Type: AWS::EC2::Subnet
+    DependsOn: IPv6CidrBlock
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select [ 1, !GetAZs '' ]
+      CidrBlock: !Select [5, !Cidr [ !GetAtt VPC.CidrBlock, 16, 12 ]]
+      AssignIpv6AddressOnCreation: true
+      Ipv6CidrBlock: 
+        Fn::Sub:
+          - "${VpcPart}${SubnetPart}"
+          - SubnetPart: '05::/64'
+            VpcPart: !Select [ 0, !Split [ '00::/56', !Select [ 0, !GetAtt VPC.Ipv6CidrBlocks ]]]
+      Tags:
+        - Key: Name
+          Value: sn-db-B
+  SubnetDBC:
+    Type: AWS::EC2::Subnet
+    DependsOn: IPv6CidrBlock
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select [ 2, !GetAZs '' ]
+      CidrBlock: !Select [9, !Cidr [ !GetAtt VPC.CidrBlock, 16, 12 ]]
+      AssignIpv6AddressOnCreation: true
+      Ipv6CidrBlock: 
+        Fn::Sub:
+          - "${VpcPart}${SubnetPart}"
+          - SubnetPart: '09::/64'
+            VpcPart: !Select [ 0, !Split [ '00::/56', !Select [ 0, !GetAtt VPC.Ipv6CidrBlocks ]]]
+      Tags:
+        - Key: Name
+          Value: sn-db-C
+  SubnetAPPA:
+    Type: AWS::EC2::Subnet
+    DependsOn: IPv6CidrBlock
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select [ 0, !GetAZs '' ]
+      CidrBlock: !Select [2, !Cidr [ !GetAtt VPC.CidrBlock, 16, 12 ]]
+      AssignIpv6AddressOnCreation: true
+      Ipv6CidrBlock: 
+        Fn::Sub:
+          - "${VpcPart}${SubnetPart}"
+          - SubnetPart: '02::/64'
+            VpcPart: !Select [ 0, !Split [ '00::/56', !Select [ 0, !GetAtt VPC.Ipv6CidrBlocks ]]]
+      Tags:
+        - Key: Name
+          Value: sn-app-A
+  SubnetAPPB:
+    Type: AWS::EC2::Subnet
+    DependsOn: IPv6CidrBlock
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select [ 1, !GetAZs '' ]
+      CidrBlock: !Select [6, !Cidr [ !GetAtt VPC.CidrBlock, 16, 12 ]]
+      AssignIpv6AddressOnCreation: true
+      Ipv6CidrBlock: 
+        Fn::Sub:
+          - "${VpcPart}${SubnetPart}"
+          - SubnetPart: '06::/64'
+            VpcPart: !Select [ 0, !Split [ '00::/56', !Select [ 0, !GetAtt VPC.Ipv6CidrBlocks ]]]
+      Tags:
+        - Key: Name
+          Value: sn-app-B
+  SubnetAPPC:
+    Type: AWS::EC2::Subnet
+    DependsOn: IPv6CidrBlock
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select [ 2, !GetAZs '' ]
+      CidrBlock: !Select [10, !Cidr [ !GetAtt VPC.CidrBlock, 16, 12 ]]
+      AssignIpv6AddressOnCreation: true
+      Ipv6CidrBlock: 
+        Fn::Sub:
+          - "${VpcPart}${SubnetPart}"
+          - SubnetPart: '0A::/64'
+            VpcPart: !Select [ 0, !Split [ '00::/56', !Select [ 0, !GetAtt VPC.Ipv6CidrBlocks ]]]
+      Tags:
+        - Key: Name
+          Value: sn-app-C
+  SubnetWEBA:
+    Type: AWS::EC2::Subnet
+    DependsOn: IPv6CidrBlock
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select [ 0, !GetAZs '' ]
+      CidrBlock: !Select [3, !Cidr [ !GetAtt VPC.CidrBlock, 16, 12 ]]
+      MapPublicIpOnLaunch: true
+      Ipv6CidrBlock: 
+        Fn::Sub:
+          - "${VpcPart}${SubnetPart}"
+          - SubnetPart: '03::/64'
+            VpcPart: !Select [ 0, !Split [ '00::/56', !Select [ 0, !GetAtt VPC.Ipv6CidrBlocks ]]]
+      Tags:
+        - Key: Name
+          Value: sn-web-A
+  SubnetWEBB:
+    Type: AWS::EC2::Subnet
+    DependsOn: IPv6CidrBlock
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select [ 1, !GetAZs '' ]
+      CidrBlock: !Select [7, !Cidr [ !GetAtt VPC.CidrBlock, 16, 12 ]]
+      MapPublicIpOnLaunch: true
+      Ipv6CidrBlock: 
+        Fn::Sub:
+          - "${VpcPart}${SubnetPart}"
+          - SubnetPart: '07::/64'
+            VpcPart: !Select [ 0, !Split [ '00::/56', !Select [ 0, !GetAtt VPC.Ipv6CidrBlocks ]]]
+      Tags:
+        - Key: Name
+          Value: sn-web-B
+  SubnetWEBC:
+    Type: AWS::EC2::Subnet
+    DependsOn: IPv6CidrBlock
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select [ 2, !GetAZs '' ]
+      CidrBlock: !Select [11, !Cidr [ !GetAtt VPC.CidrBlock, 16, 12 ]]
+      MapPublicIpOnLaunch: true
+      Ipv6CidrBlock: 
+        Fn::Sub:
+          - "${VpcPart}${SubnetPart}"
+          - SubnetPart: '0B::/64'
+            VpcPart: !Select [ 0, !Split [ '00::/56', !Select [ 0, !GetAtt VPC.Ipv6CidrBlocks ]]]
+      Tags:
+        - Key: Name
+          Value: sn-web-C
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+      - Key: Name
+        Value: ORG-vpc1-igw
+  InternetGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties: 
+      InternetGatewayId: !Ref InternetGateway
+      VpcId: !Ref VPC
+  RouteTableWeb:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+      - Key: Name
+        Value: ORG-vpc1-rt-web
+  RouteTableAssociationSubnetWEBA:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    DependsOn: RouteTableWeb
+    Properties:
+      SubnetId:
+        Ref: SubnetWEBA
+      RouteTableId:
+        Ref: RouteTableWeb
+  RouteTableAssociationSubnetWEBB:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    DependsOn: RouteTableWeb
+    Properties:
+      SubnetId:
+        Ref: SubnetWEBB
+      RouteTableId:
+        Ref: RouteTableWeb
+  RouteTableAssociationSubnetWEBC:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    DependsOn: RouteTableWeb
+    Properties:
+      SubnetId:
+        Ref: SubnetWEBC
+      RouteTableId:
+        Ref: RouteTableWeb
+  RouteTableWebDefaultIPv4: 
+    Type: AWS::EC2::Route
+    DependsOn: InternetGatewayAttachment
+    Properties:
+      RouteTableId: !Ref RouteTableWeb
+      DestinationCidrBlock: '0.0.0.0/0'
+      GatewayId: !Ref InternetGateway
+  RouteTableWebDefaultIPv6: 
+    Type: 'AWS::EC2::Route'
+    DependsOn: InternetGatewayAttachment
+    Properties:
+      RouteTableId: !Ref RouteTableWeb
+      DestinationIpv6CidrBlock: '::/0'
+      GatewayId: !Ref InternetGateway
+  InstanceSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      VpcId: !Ref VPC
+      GroupDescription: Enable SSH access via port 22 IPv4 & v6
+      SecurityGroupIngress:
+        - Description: Allow SSH IPv4 IN
+          IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+        - Description: Allow SSH IPv6 IN
+          IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIpv6: ::/0
+        - Description: Allow HTTP IPv4 IN
+          IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+  InstanceSecurityGroupSelfReferenceRule:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId: !Ref InstanceSecurityGroup
+      IpProtocol: -1
+      SourceSecurityGroupId: !Ref InstanceSecurityGroup
+  RDSInstanceSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      VpcId: !Ref VPC
+      GroupDescription: RDS Instance Security group
+      SecurityGroupIngress:
+        - Description: Allow port 3306 inbound
+          IpProtocol: tcp
+          FromPort: 3306
+          ToPort: 3306
+          SourceSecurityGroupId: !Ref InstanceSecurityGroup
+  SSMParameterDBUser:
+    Type: 'AWS::SSM::Parameter'
+    Properties:
+      Name: /ORG/Wordpress/DBUser
+      Description: The login for the specific wordpress DB
+      Type: String
+      Value: !Ref DBUser
+  SSMParameterDBName:
+    Type: 'AWS::SSM::Parameter'
+    Properties:
+      Name: /ORG/Wordpress/DBName
+      Description: The name of the wordpress database.
+      Type: String
+      Value: !Ref DBName
+  SSMParameterDBEndPoint:
+    Type: 'AWS::SSM::Parameter'
+    Properties:
+      Name: /ORG/Wordpress/DBEndpoint
+      Description: The endpoint for the wordpress DB.
+      Type: String
+      Value: !Ref DBEndPoint
+  SSMParameterDBPassword:
+    Type: 'AWS::SSM::Parameter'
+    Properties:
+      Name: /ORG/Wordpress/DBPassword
+      Description: The password for the DBUser
+      Type: String
+      Value: !Ref DBPassword 
+  SSMParameterDBRootPassword:
+    Type: 'AWS::SSM::Parameter'
+    Properties:
+      Name: /ORG/Wordpress/DBRootPassword
+      Description: The password for the database root user, used for self-managed admin.
+      Type: String
+      Value: !Ref DBRootPassword
+  SessionManagerInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Path: /
+      Roles:
+        - Ref: SessionManagerRole
+  SessionManagerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+
+  WordPressLaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateName: WPLaunchTemplate
+      VersionDescription: Launch a wordpress template
+      LaunchTemplateData:
+        InstanceType: t2.micro
+        ImageId: !FindInMap [RegionMap, !Ref 'AWS::Region', x64]
+        IamInstanceProfile: 
+          Arn: !GetAtt SessionManagerInstanceProfile.Arn
+        SecurityGroupIds: 
+          - !Ref InstanceSecurityGroup
+        UserData:
+          Fn::Base64:
+            !Sub |
+              #!/bin/bash
+              # Bring in the parameter values from SSM
+              DBPassword=$(aws ssm get-parameters --region us-east-1 --names /ORG/Wordpress/DBPassword --with-decryption --query Parameters[0].Value)
+              DBPassword=`echo $DBPassword | sed -e 's/^"//' -e 's/"$//'`
+
+              DBRootPassword=$(aws ssm get-parameters --region us-east-1 --names /ORG/Wordpress/DBRootPassword --with-decryption --query Parameters[0].Value)
+              DBRootPassword=`echo $DBRootPassword | sed -e 's/^"//' -e 's/"$//'`
+
+              DBUser=$(aws ssm get-parameters --region us-east-1 --names /ORG/Wordpress/DBUser --query Parameters[0].Value)
+              DBUser=`echo $DBUser | sed -e 's/^"//' -e 's/"$//'`
+
+              DBName=$(aws ssm get-parameters --region us-east-1 --names /ORG/Wordpress/DBName --query Parameters[0].Value)
+              DBName=`echo $DBName | sed -e 's/^"//' -e 's/"$//'`
+
+              DBEndpoint=$(aws ssm get-parameters --region us-east-1 --names /ORG/Wordpress/DBEndpoint --query Parameters[0].Value)
+              DBEndpoint=`echo $DBEndpoint | sed -e 's/^"//' -e 's/"$//'`
+
+              # Install updates
+              sudo dnf -y update
+              # Install Pre-Reqs and Web Server
+              sudo dnf install wget php-mysqlnd httpd php-fpm php-mysqli mariadb105-server php-json php php-devel stress -y
+              # Set DB and HTTP Server to running and start by default
+              sudo systemctl enable httpd
+              sudo systemctl enable mariadb
+              sudo systemctl start httpd
+              sudo systemctl start mariadb
+              # Set the MariaDB Root Password
+              sudo mysqladmin -u root password $DBRootPassword
+              # Download and extract Wordpress
+              sudo wget http://wordpress.org/latest.tar.gz -P /var/www/html
+              cd /var/www/html
+              sudo tar -zxvf latest.tar.gz
+              sudo cp -rvf wordpress/* .
+              sudo rm -R wordpress
+              sudo rm latest.tar.gz
+              # Configure the wordpress wp-config.php file
+              sudo cp ./wp-config-sample.php ./wp-config.php
+              sudo sed -i "s/'database_name_here'/'$DBName'/g" wp-config.php
+              sudo sed -i "s/'username_here'/'$DBUser'/g" wp-config.php
+              sudo sed -i "s/'password_here'/'$DBPassword'/g" wp-config.php
+              # Fix Permissions on the filesystem
+              sudo usermod -a -G apache ec2-user   
+              sudo chown -R ec2-user:apache /var/www
+              sudo chmod 2775 /var/www
+              sudo find /var/www -type d -exec chmod 2775 {} \;
+              sudo find /var/www -type f -exec chmod 0664 {} \;
+              # Create Wordpress User, set its password, create the database and configure permissions
+              sudo echo "CREATE DATABASE $DBName;" >> /tmp/db.setup
+              sudo echo "CREATE USER '$DBUser'@'localhost' IDENTIFIED BY '$DBPassword';" >> /tmp/db.setup
+              sudo echo "GRANT ALL ON $DBName.* TO '$DBUser'@'localhost';" >> /tmp/db.setup
+              sudo echo "FLUSH PRIVILEGES;" >> /tmp/db.setup
+              sudo mysql -u root --password=$DBRootPassword < /tmp/db.setup
+              sudo rm /tmp/db.setup
+  
+  RDSDBSubnetGroupDBA:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties: 
+      DBSubnetGroupDescription: RDS Subnet group for the DB subnets
+      DBSubnetGroupName: org-vpc1-dbgrp-wordpress
+      SubnetIds: 
+        - !Ref SubnetDBA
+        - !Ref SubnetDBB
+        - !Ref SubnetDBC
+      Tags: 
+        - Key: Name
+          Value: ORG-vpc1-dbgrp-wordpress
+
+  RDSInstanceDBA:
+    Type: AWS::RDS::DBInstance
+    DependsOn: RDSDBSubnetGroupDBA
+    Properties:
+      DBInstanceIdentifier: orgWordPress
+      DBName: !Ref DBName
+      DBInstanceClass: db.t3.micro
+      AllocatedStorage: 20
+      Engine: MySQL
+      EngineVersion: '8.0.33'
+      MasterUsername: !Ref DBUser
+      MasterUserPassword: !Ref DBPassword
+      PubliclyAccessible: false
+      AvailabilityZone: !Select [ 0, !GetAZs '' ]
+      StorageType: gp2
+      NetworkType: IPV4
+      DBSubnetGroupName: !Ref RDSDBSubnetGroupDBA
+      VPCSecurityGroups:
+        - !Ref RDSInstanceSecurityGroup
+      Tags: 
+        - Key: Name
+          Value: ORG-vpc1-rds-orgWordPress
+
+  SSMParameterDBEndPoint:
+    Type: 'AWS::SSM::Parameter'
+    DependsOn: RDSInstanceDBA
+    Properties:
+      Name: /ORG/Wordpress/DBEndpoint
+      Description: The endpoint for the wordpress DB.
+      Type: String
+      Value: !GetAtt RDSInstanceDBA.Endpoint.Address
+
+  EC2InstanceWebWP1:
+    Type: AWS::EC2::Instance
+    DependsOn: SSMParameterDBEndPoint
+    Properties:
+      LaunchTemplate: 
+         LaunchTemplateId: !Ref WordPressLaunchTemplate
+         Version: !GetAtt WordPressLaunchTemplate.LatestVersionNumber
+      SubnetId: !Ref SubnetWEBA
+      UserData:
+        Fn::Base64:
+          !Sub |
+            #!/bin/bash
+            # Bring in the parameter values from SSM
+            DBPassword=$(aws ssm get-parameters --region us-east-1 --names /ORG/Wordpress/DBPassword --with-decryption --query Parameters[0].Value)
+            DBPassword=`echo $DBPassword | sed -e 's/^"//' -e 's/"$//'`
+
+            DBRootPassword=$(aws ssm get-parameters --region us-east-1 --names /ORG/Wordpress/DBRootPassword --with-decryption --query Parameters[0].Value)
+            DBRootPassword=`echo $DBRootPassword | sed -e 's/^"//' -e 's/"$//'`
+
+            DBUser=$(aws ssm get-parameters --region us-east-1 --names /ORG/Wordpress/DBUser --query Parameters[0].Value)
+            DBUser=`echo $DBUser | sed -e 's/^"//' -e 's/"$//'`
+
+            DBName=$(aws ssm get-parameters --region us-east-1 --names /ORG/Wordpress/DBName --query Parameters[0].Value)
+            DBName=`echo $DBName | sed -e 's/^"//' -e 's/"$//'`
+
+            # Update the DbEndpoint environment variable
+            DBEndpoint=$(aws ssm get-parameters --region us-east-1 --names /ORG/Wordpress/DBEndpoint --query Parameters[0].Value)
+            DBEndpoint=`echo $DBEndpoint | sed -e 's/^"//' -e 's/"$//'`
+
+            # Take a Backup of the local DB
+            mysqldump -h $DBEndpoint -u $DBUser -p$DBPassword $DBName > orgWordPress.sql
+            
+            # Restore the database export into RDS
+            mysql -h $DBEndpoint -u $DBUser -p$DBPassword $DBName < orgWordPress.sql
+
+            # Change the WordPress config file to use RDS
+            sudo sed -i "s/'localhost'/'$DBEndpoint'/g" /var/www/html/wp-config.php
+
+            # Stop the MariaDB Service
+            sudo systemctl disable mariadb
+            sudo systemctl stop mariadb
+      Tags: 
+        - Key: Name
+          Value: WEBA-WP-1
+

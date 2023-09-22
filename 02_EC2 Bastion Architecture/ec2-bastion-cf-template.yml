@@ -1,0 +1,415 @@
+Description: Three-Tier Network Architecture with EC2 bastion
+Mappings:
+  RegionMap:
+    us-east-1:
+      x64: "ami-04cb4ca688797756f"
+      arm: "ami-04249813e163e2cb8"
+Resources:
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.16.0.0/16
+      EnableDnsHostnames: true
+      EnableDnsSupport: true
+      Tags: 
+        - Key: Name
+          Value: !Sub ORG-vpc1
+  IPv6CidrBlock:
+    Type: AWS::EC2::VPCCidrBlock
+    Properties:
+      VpcId: !Ref VPC
+      AmazonProvidedIpv6CidrBlock: true
+  SubnetReservedA:
+    Type: AWS::EC2::Subnet
+    DependsOn: IPv6CidrBlock
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select [ 0, !GetAZs '' ]
+      CidrBlock: !Select [0, !Cidr [ !GetAtt VPC.CidrBlock, 16, 12 ]]
+      AssignIpv6AddressOnCreation: true
+      Ipv6CidrBlock: 
+        Fn::Sub:
+          - "${VpcPart}${SubnetPart}"
+          - SubnetPart: '00::/64'
+            VpcPart: !Select [ 0, !Split [ '00::/56', !Select [ 0, !GetAtt VPC.Ipv6CidrBlocks ]]]
+      Tags:
+        - Key: Name
+          Value: sn-reserved-A
+  SubnetReservedB:
+    Type: AWS::EC2::Subnet
+    DependsOn: IPv6CidrBlock
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select [ 1, !GetAZs '' ]
+      CidrBlock: !Select [4, !Cidr [ !GetAtt VPC.CidrBlock, 16, 12 ]]
+      AssignIpv6AddressOnCreation: true
+      Ipv6CidrBlock: 
+        Fn::Sub:
+          - "${VpcPart}${SubnetPart}"
+          - SubnetPart: '04::/64'
+            VpcPart: !Select [ 0, !Split [ '00::/56', !Select [ 0, !GetAtt VPC.Ipv6CidrBlocks ]]]
+      Tags:
+        - Key: Name
+          Value: sn-reserved-B
+  SubnetReservedC:
+    Type: AWS::EC2::Subnet
+    DependsOn: IPv6CidrBlock
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select [ 2, !GetAZs '' ]
+      CidrBlock: !Select [8, !Cidr [ !GetAtt VPC.CidrBlock, 16, 12 ]]
+      AssignIpv6AddressOnCreation: true
+      Ipv6CidrBlock: 
+        Fn::Sub:
+          - "${VpcPart}${SubnetPart}"
+          - SubnetPart: '08::/64'
+            VpcPart: !Select [ 0, !Split [ '00::/56', !Select [ 0, !GetAtt VPC.Ipv6CidrBlocks ]]]
+      Tags:
+        - Key: Name
+          Value: sn-reserved-C
+  SubnetDBA:
+    Type: AWS::EC2::Subnet
+    DependsOn: IPv6CidrBlock
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select [ 0, !GetAZs '' ]
+      CidrBlock: !Select [1, !Cidr [ !GetAtt VPC.CidrBlock, 16, 12 ]]
+      AssignIpv6AddressOnCreation: true
+      Ipv6CidrBlock: 
+        Fn::Sub:
+          - "${VpcPart}${SubnetPart}"
+          - SubnetPart: '01::/64'
+            VpcPart: !Select [ 0, !Split [ '00::/56', !Select [ 0, !GetAtt VPC.Ipv6CidrBlocks ]]]
+      Tags:
+        - Key: Name
+          Value: sn-db-A
+  SubnetDBB:
+    Type: AWS::EC2::Subnet
+    DependsOn: IPv6CidrBlock
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select [ 1, !GetAZs '' ]
+      CidrBlock: !Select [5, !Cidr [ !GetAtt VPC.CidrBlock, 16, 12 ]]
+      AssignIpv6AddressOnCreation: true
+      Ipv6CidrBlock: 
+        Fn::Sub:
+          - "${VpcPart}${SubnetPart}"
+          - SubnetPart: '05::/64'
+            VpcPart: !Select [ 0, !Split [ '00::/56', !Select [ 0, !GetAtt VPC.Ipv6CidrBlocks ]]]
+      Tags:
+        - Key: Name
+          Value: sn-db-B
+  SubnetDBC:
+    Type: AWS::EC2::Subnet
+    DependsOn: IPv6CidrBlock
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select [ 2, !GetAZs '' ]
+      CidrBlock: !Select [9, !Cidr [ !GetAtt VPC.CidrBlock, 16, 12 ]]
+      AssignIpv6AddressOnCreation: true
+      Ipv6CidrBlock: 
+        Fn::Sub:
+          - "${VpcPart}${SubnetPart}"
+          - SubnetPart: '09::/64'
+            VpcPart: !Select [ 0, !Split [ '00::/56', !Select [ 0, !GetAtt VPC.Ipv6CidrBlocks ]]]
+      Tags:
+        - Key: Name
+          Value: sn-db-C
+  SubnetAPPA:
+    Type: AWS::EC2::Subnet
+    DependsOn: IPv6CidrBlock
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select [ 0, !GetAZs '' ]
+      CidrBlock: !Select [2, !Cidr [ !GetAtt VPC.CidrBlock, 16, 12 ]]
+      AssignIpv6AddressOnCreation: true
+      Ipv6CidrBlock: 
+        Fn::Sub:
+          - "${VpcPart}${SubnetPart}"
+          - SubnetPart: '02::/64'
+            VpcPart: !Select [ 0, !Split [ '00::/56', !Select [ 0, !GetAtt VPC.Ipv6CidrBlocks ]]]
+      Tags:
+        - Key: Name
+          Value: sn-app-A
+  SubnetAPPB:
+    Type: AWS::EC2::Subnet
+    DependsOn: IPv6CidrBlock
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select [ 1, !GetAZs '' ]
+      CidrBlock: !Select [6, !Cidr [ !GetAtt VPC.CidrBlock, 16, 12 ]]
+      AssignIpv6AddressOnCreation: true
+      Ipv6CidrBlock: 
+        Fn::Sub:
+          - "${VpcPart}${SubnetPart}"
+          - SubnetPart: '06::/64'
+            VpcPart: !Select [ 0, !Split [ '00::/56', !Select [ 0, !GetAtt VPC.Ipv6CidrBlocks ]]]
+      Tags:
+        - Key: Name
+          Value: sn-app-B
+  SubnetAPPC:
+    Type: AWS::EC2::Subnet
+    DependsOn: IPv6CidrBlock
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select [ 2, !GetAZs '' ]
+      CidrBlock: !Select [10, !Cidr [ !GetAtt VPC.CidrBlock, 16, 12 ]]
+      AssignIpv6AddressOnCreation: true
+      Ipv6CidrBlock: 
+        Fn::Sub:
+          - "${VpcPart}${SubnetPart}"
+          - SubnetPart: '0A::/64'
+            VpcPart: !Select [ 0, !Split [ '00::/56', !Select [ 0, !GetAtt VPC.Ipv6CidrBlocks ]]]
+      Tags:
+        - Key: Name
+          Value: sn-app-C
+  SubnetWEBA:
+    Type: AWS::EC2::Subnet
+    DependsOn: IPv6CidrBlock
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select [ 0, !GetAZs '' ]
+      CidrBlock: !Select [3, !Cidr [ !GetAtt VPC.CidrBlock, 16, 12 ]]
+      MapPublicIpOnLaunch: true
+      Ipv6CidrBlock: 
+        Fn::Sub:
+          - "${VpcPart}${SubnetPart}"
+          - SubnetPart: '03::/64'
+            VpcPart: !Select [ 0, !Split [ '00::/56', !Select [ 0, !GetAtt VPC.Ipv6CidrBlocks ]]]
+      Tags:
+        - Key: Name
+          Value: sn-web-A
+  SubnetWEBB:
+    Type: AWS::EC2::Subnet
+    DependsOn: IPv6CidrBlock
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select [ 1, !GetAZs '' ]
+      CidrBlock: !Select [7, !Cidr [ !GetAtt VPC.CidrBlock, 16, 12 ]]
+      MapPublicIpOnLaunch: true
+      Ipv6CidrBlock: 
+        Fn::Sub:
+          - "${VpcPart}${SubnetPart}"
+          - SubnetPart: '07::/64'
+            VpcPart: !Select [ 0, !Split [ '00::/56', !Select [ 0, !GetAtt VPC.Ipv6CidrBlocks ]]]
+      Tags:
+        - Key: Name
+          Value: sn-web-B
+  SubnetWEBC:
+    Type: AWS::EC2::Subnet
+    DependsOn: IPv6CidrBlock
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select [ 2, !GetAZs '' ]
+      CidrBlock: !Select [11, !Cidr [ !GetAtt VPC.CidrBlock, 16, 12 ]]
+      MapPublicIpOnLaunch: true
+      Ipv6CidrBlock: 
+        Fn::Sub:
+          - "${VpcPart}${SubnetPart}"
+          - SubnetPart: '0B::/64'
+            VpcPart: !Select [ 0, !Split [ '00::/56', !Select [ 0, !GetAtt VPC.Ipv6CidrBlocks ]]]
+      Tags:
+        - Key: Name
+          Value: sn-web-C
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+      - Key: Name
+        Value: ORG-vpc1-igw
+  InternetGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties: 
+      InternetGatewayId: !Ref InternetGateway
+      VpcId: !Ref VPC
+  RouteTableWeb:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+      - Key: Name
+        Value: ORG-vpc1-rt-web
+  RouteTableAssociationSubnetWEBA:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    DependsOn: RouteTableWeb
+    Properties:
+      SubnetId:
+        Ref: SubnetWEBA
+      RouteTableId:
+        Ref: RouteTableWeb
+  RouteTableAssociationSubnetWEBB:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    DependsOn: RouteTableWeb
+    Properties:
+      SubnetId:
+        Ref: SubnetWEBB
+      RouteTableId:
+        Ref: RouteTableWeb
+  RouteTableAssociationSubnetWEBC:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    DependsOn: RouteTableWeb
+    Properties:
+      SubnetId:
+        Ref: SubnetWEBC
+      RouteTableId:
+        Ref: RouteTableWeb
+  RouteTableWebDefaultIPv4: 
+    Type: AWS::EC2::Route
+    DependsOn: InternetGatewayAttachment
+    Properties:
+      RouteTableId: !Ref RouteTableWeb
+      DestinationCidrBlock: '0.0.0.0/0'
+      GatewayId: !Ref InternetGateway
+  RouteTableWebDefaultIPv6: 
+    Type: 'AWS::EC2::Route'
+    DependsOn: InternetGatewayAttachment
+    Properties:
+      RouteTableId: !Ref RouteTableWeb
+      DestinationIpv6CidrBlock: '::/0'
+      GatewayId: !Ref InternetGateway
+  InstanceSecurityGroupBastion:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      VpcId: !Ref VPC
+      GroupDescription: Enable SSH access via port 22 IPv4 & v6
+      SecurityGroupIngress:
+        - Description: Allow SSH IPv4 IN
+          IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+        - Description: Allow SSH IPv6 IN
+          IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIpv6: ::/0
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+          Description: Allow all outbound
+      Tags: 
+        - Key: Name
+          Value: ORG-vpc1-bastion-sg
+  InstanceSecurityGroupApp:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      VpcId: !Ref VPC
+      GroupDescription: Enable SSH access via port 22 IPv4 & v6
+      SecurityGroupIngress:
+        - Description: Allow SSH in IPv4 and IPv6 from bastion security group
+          IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          SourceSecurityGroupId: !Ref InstanceSecurityGroupBastion
+        - Description: Allow ICMP bastion security group
+          IpProtocol: icmp
+          FromPort: 8
+          ToPort: -1
+          SourceSecurityGroupId: !Ref InstanceSecurityGroupBastion
+      Tags: 
+        - Key: Name
+          Value: ORG-vpc1-app-sg
+  InstanceBastionKeyPair:
+    Type: AWS::EC2::KeyPair
+    Properties: 
+      KeyName: BastionKeyPair
+      Tags: 
+        - Key: Name
+          Value: BastionKeyPair
+  InstanceBastionInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles:
+        - Ref: InstanceAssumeRole
+  InstanceAssumeRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: AllowSSMKeyPairPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - ec2:DescribeKeyPairs
+                  - ssm:PutParameter
+                  - ssm:DeleteParameter
+                  - ssm:GetParameter
+                Resource: '*'
+  EC2Bastion:
+    Type: AWS::EC2::Instance
+    DependsOn: 
+      - InstanceBastionKeyPair
+      - InstanceAssumeRole
+    Properties:
+      InstanceType: t2.micro
+      ImageId: !FindInMap [RegionMap, !Ref 'AWS::Region', x64]
+      AvailabilityZone: !Select [0, !GetAZs '']
+      SubnetId: !Ref SubnetWEBA
+      IamInstanceProfile: !Ref InstanceBastionInstanceProfile
+      SecurityGroupIds: 
+        - !Ref InstanceSecurityGroupBastion
+      UserData:
+        Fn::Base64: 
+          !Sub |
+            #!/bin/bash
+            # Get the Keypair ID
+            myKeyPair=$(sudo aws ec2 describe-key-pairs --filters Name=key-name,Values=BastionKeyPair --query KeyPairs[*].KeyPairId --output text)
+            # Use the SSM to get the private key using the KeyPair parameter
+            sudo aws ssm get-parameter --name /ec2/keypair/$myKeyPair --with-decryption --query Parameter.Value --output text > /home/ec2-user/BastionKeyPair.pem
+            # Change the permission of the pem file
+            sudo chmod 400 BastionKeyPair.pem
+            # Change the ownership of the pem file
+            sudo chown ec2-user:ec2-user BastionKeyPair.pem
+      Tags: 
+        - Key: Name
+          Value: ORG-BASTION-HOST
+  EC2AppServer1:
+    Type: AWS::EC2::Instance
+    DependsOn: EC2Bastion
+    Properties:
+      InstanceType: t2.micro
+      ImageId: !FindInMap [RegionMap, !Ref 'AWS::Region', x64]
+      AvailabilityZone: !Select [0, !GetAZs '']
+      SubnetId: !Ref SubnetAPPA
+      KeyName: BastionKeyPair
+      SecurityGroupIds: 
+        - !Ref InstanceSecurityGroupApp
+      Tags: 
+        - Key: Name
+          Value: ORG-HOST-APP-1
+  EC2AppServer2:
+    Type: AWS::EC2::Instance
+    DependsOn: EC2Bastion
+    Properties:
+      InstanceType: t2.micro
+      ImageId: !FindInMap [RegionMap, !Ref 'AWS::Region', x64]
+      AvailabilityZone: !Select [1, !GetAZs '']
+      SubnetId: !Ref SubnetAPPB
+      KeyName: BastionKeyPair
+      SecurityGroupIds: 
+        - !Ref InstanceSecurityGroupApp
+      Tags: 
+        - Key: Name
+          Value: ORG-HOST-APP-2
+  EC2AppServer3:
+    Type: AWS::EC2::Instance
+    DependsOn: EC2Bastion
+    Properties:
+      InstanceType: t2.micro
+      ImageId: !FindInMap [RegionMap, !Ref 'AWS::Region', x64]
+      AvailabilityZone: !Select [2, !GetAZs '']
+      SubnetId: !Ref SubnetAPPC
+      KeyName: BastionKeyPair
+      SecurityGroupIds: 
+        - !Ref InstanceSecurityGroupApp
+      Tags: 
+        - Key: Name
+          Value: ORG-HOST-APP-3
