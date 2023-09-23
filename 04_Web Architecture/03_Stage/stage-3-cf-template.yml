@@ -13,16 +13,8 @@ Parameters:
     Description: The name of the wordpress database.
     Type: String
     Default: orgwordpressdb
-  DBEndPoint:
-    Description: The endpoint for the wordpress DB.
-    Type: String
-    Default: localhost
   DBPassword:
     Description: The password for the DBUser.
-    Type: String
-    NoEcho: true
-  DBRootPassword :
-    Description: The password for the database root user, used for self-managed admin.
     Type: String
     NoEcho: true
 Resources:
@@ -340,13 +332,6 @@ Resources:
       Description: The name of the wordpress database.
       Type: String
       Value: !Ref DBName
-  SSMParameterDBEndPoint:
-    Type: 'AWS::SSM::Parameter'
-    Properties:
-      Name: /ORG/Wordpress/DBEndpoint
-      Description: The endpoint for the wordpress DB.
-      Type: String
-      Value: !Ref DBEndPoint
   SSMParameterDBPassword:
     Type: 'AWS::SSM::Parameter'
     Properties:
@@ -354,13 +339,6 @@ Resources:
       Description: The password for the DBUser
       Type: String
       Value: !Ref DBPassword 
-  SSMParameterDBRootPassword:
-    Type: 'AWS::SSM::Parameter'
-    Properties:
-      Name: /ORG/Wordpress/DBRootPassword
-      Description: The password for the database root user, used for self-managed admin.
-      Type: String
-      Value: !Ref DBRootPassword
   SessionManagerInstanceProfile:
     Type: AWS::IAM::InstanceProfile
     Properties:
@@ -379,76 +357,6 @@ Resources:
             Action: sts:AssumeRole
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
-
-  WordPressLaunchTemplate:
-    Type: AWS::EC2::LaunchTemplate
-    Properties:
-      LaunchTemplateName: WPLaunchTemplate
-      VersionDescription: Launch a wordpress template
-      LaunchTemplateData:
-        InstanceType: t2.micro
-        ImageId: !FindInMap [RegionMap, !Ref 'AWS::Region', x64]
-        IamInstanceProfile: 
-          Arn: !GetAtt SessionManagerInstanceProfile.Arn
-        SecurityGroupIds: 
-          - !Ref InstanceSecurityGroup
-        UserData:
-          Fn::Base64:
-            !Sub |
-              #!/bin/bash
-              # Bring in the parameter values from SSM
-              DBPassword=$(aws ssm get-parameters --region us-east-1 --names /ORG/Wordpress/DBPassword --with-decryption --query Parameters[0].Value)
-              DBPassword=`echo $DBPassword | sed -e 's/^"//' -e 's/"$//'`
-
-              DBRootPassword=$(aws ssm get-parameters --region us-east-1 --names /ORG/Wordpress/DBRootPassword --with-decryption --query Parameters[0].Value)
-              DBRootPassword=`echo $DBRootPassword | sed -e 's/^"//' -e 's/"$//'`
-
-              DBUser=$(aws ssm get-parameters --region us-east-1 --names /ORG/Wordpress/DBUser --query Parameters[0].Value)
-              DBUser=`echo $DBUser | sed -e 's/^"//' -e 's/"$//'`
-
-              DBName=$(aws ssm get-parameters --region us-east-1 --names /ORG/Wordpress/DBName --query Parameters[0].Value)
-              DBName=`echo $DBName | sed -e 's/^"//' -e 's/"$//'`
-
-              DBEndpoint=$(aws ssm get-parameters --region us-east-1 --names /ORG/Wordpress/DBEndpoint --query Parameters[0].Value)
-              DBEndpoint=`echo $DBEndpoint | sed -e 's/^"//' -e 's/"$//'`
-
-              # Install updates
-              sudo dnf -y update
-              # Install Pre-Reqs and Web Server
-              sudo dnf install wget php-mysqlnd httpd php-fpm php-mysqli mariadb105-server php-json php php-devel stress -y
-              # Set DB and HTTP Server to running and start by default
-              sudo systemctl enable httpd
-              sudo systemctl enable mariadb
-              sudo systemctl start httpd
-              sudo systemctl start mariadb
-              # Set the MariaDB Root Password
-              sudo mysqladmin -u root password $DBRootPassword
-              # Download and extract Wordpress
-              sudo wget http://wordpress.org/latest.tar.gz -P /var/www/html
-              cd /var/www/html
-              sudo tar -zxvf latest.tar.gz
-              sudo cp -rvf wordpress/* .
-              sudo rm -R wordpress
-              sudo rm latest.tar.gz
-              # Configure the wordpress wp-config.php file
-              sudo cp ./wp-config-sample.php ./wp-config.php
-              sudo sed -i "s/'database_name_here'/'$DBName'/g" wp-config.php
-              sudo sed -i "s/'username_here'/'$DBUser'/g" wp-config.php
-              sudo sed -i "s/'password_here'/'$DBPassword'/g" wp-config.php
-              # Fix Permissions on the filesystem
-              sudo usermod -a -G apache ec2-user   
-              sudo chown -R ec2-user:apache /var/www
-              sudo chmod 2775 /var/www
-              sudo find /var/www -type d -exec chmod 2775 {} \;
-              sudo find /var/www -type f -exec chmod 0664 {} \;
-              # Create Wordpress User, set its password, create the database and configure permissions
-              sudo echo "CREATE DATABASE $DBName;" >> /tmp/db.setup
-              sudo echo "CREATE USER '$DBUser'@'localhost' IDENTIFIED BY '$DBPassword';" >> /tmp/db.setup
-              sudo echo "GRANT ALL ON $DBName.* TO '$DBUser'@'localhost';" >> /tmp/db.setup
-              sudo echo "FLUSH PRIVILEGES;" >> /tmp/db.setup
-              sudo mysql -u root --password=$DBRootPassword < /tmp/db.setup
-              sudo rm /tmp/db.setup
-  
   RDSDBSubnetGroupDBA:
     Type: AWS::RDS::DBSubnetGroup
     Properties: 
@@ -461,7 +369,6 @@ Resources:
       Tags: 
         - Key: Name
           Value: ORG-vpc1-dbgrp-wordpress
-
   RDSInstanceDBA:
     Type: AWS::RDS::DBInstance
     DependsOn: RDSDBSubnetGroupDBA
@@ -484,7 +391,6 @@ Resources:
       Tags: 
         - Key: Name
           Value: ORG-vpc1-rds-orgWordPress
-
   SSMParameterDBEndPoint:
     Type: 'AWS::SSM::Parameter'
     DependsOn: RDSInstanceDBA
@@ -493,49 +399,70 @@ Resources:
       Description: The endpoint for the wordpress DB.
       Type: String
       Value: !GetAtt RDSInstanceDBA.Endpoint.Address
+  WordPressLaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    DependsOn: RDSInstanceDBA
+    Properties:
+      LaunchTemplateName: WPLaunchTemplate
+      VersionDescription: Launch a wordpress template
+      LaunchTemplateData:
+        InstanceType: t2.micro
+        ImageId: !FindInMap [RegionMap, !Ref 'AWS::Region', x64]
+        IamInstanceProfile: 
+          Arn: !GetAtt SessionManagerInstanceProfile.Arn
+        SecurityGroupIds: 
+          - !Ref InstanceSecurityGroup
+        UserData:
+          Fn::Base64:
+            !Sub |
+              #!/bin/bash
+              # Bring in the parameter values from SSM
+              DBPassword=$(aws ssm get-parameters --region us-east-1 --names /ORG/Wordpress/DBPassword --query Parameters[0].Value)
+              DBPassword=`echo $DBPassword | sed -e 's/^"//' -e 's/"$//'`
 
+              DBUser=$(aws ssm get-parameters --region us-east-1 --names /ORG/Wordpress/DBUser --query Parameters[0].Value)
+              DBUser=`echo $DBUser | sed -e 's/^"//' -e 's/"$//'`
+
+              DBName=$(aws ssm get-parameters --region us-east-1 --names /ORG/Wordpress/DBName --query Parameters[0].Value)
+              DBName=`echo $DBName | sed -e 's/^"//' -e 's/"$//'`
+
+              DBEndpoint=$(aws ssm get-parameters --region us-east-1 --names /ORG/Wordpress/DBEndpoint --query Parameters[0].Value)
+              DBEndpoint=`echo $DBEndpoint | sed -e 's/^"//' -e 's/"$//'`
+
+              # Install updates
+              sudo dnf -y update
+              # Install Pre-Reqs and Web Server
+              sudo dnf install wget php-mysqlnd httpd php-fpm php-mysqli mariadb105-server php-json php php-devel stress -y
+              # Set DB and HTTP Server to running and start by default
+              sudo systemctl enable httpd
+              sudo systemctl start httpd
+              # Download and extract Wordpress
+              sudo wget http://wordpress.org/latest.tar.gz -P /var/www/html
+              cd /var/www/html
+              sudo tar -zxvf latest.tar.gz
+              sudo cp -rvf wordpress/* .
+              sudo rm -R wordpress
+              sudo rm latest.tar.gz
+              # Configure the wordpress wp-config.php file
+              sudo cp ./wp-config-sample.php ./wp-config.php
+              sudo sed -i "s/'database_name_here'/'$DBName'/g" wp-config.php
+              sudo sed -i "s/'username_here'/'$DBUser'/g" wp-config.php
+              sudo sed -i "s/'password_here'/'$DBPassword'/g" wp-config.php
+              sudo sed -i "s/'localhost'/'$DBEndpoint'/g" wp-config.php
+              # Fix Permissions on the filesystem
+              sudo usermod -a -G apache ec2-user   
+              sudo chown -R ec2-user:apache /var/www
+              sudo chmod 2775 /var/www
+              sudo find /var/www -type d -exec chmod 2775 {} \;
+              sudo find /var/www -type f -exec chmod 0664 {} \;
   EC2InstanceWebWP1:
     Type: AWS::EC2::Instance
-    DependsOn: SSMParameterDBEndPoint
+    DependsOn: WordPressLaunchTemplate
     Properties:
       LaunchTemplate: 
          LaunchTemplateId: !Ref WordPressLaunchTemplate
          Version: !GetAtt WordPressLaunchTemplate.LatestVersionNumber
       SubnetId: !Ref SubnetWEBA
-      UserData:
-        Fn::Base64:
-          !Sub |
-            #!/bin/bash
-            # Bring in the parameter values from SSM
-            DBPassword=$(aws ssm get-parameters --region us-east-1 --names /ORG/Wordpress/DBPassword --with-decryption --query Parameters[0].Value)
-            DBPassword=`echo $DBPassword | sed -e 's/^"//' -e 's/"$//'`
-
-            DBRootPassword=$(aws ssm get-parameters --region us-east-1 --names /ORG/Wordpress/DBRootPassword --with-decryption --query Parameters[0].Value)
-            DBRootPassword=`echo $DBRootPassword | sed -e 's/^"//' -e 's/"$//'`
-
-            DBUser=$(aws ssm get-parameters --region us-east-1 --names /ORG/Wordpress/DBUser --query Parameters[0].Value)
-            DBUser=`echo $DBUser | sed -e 's/^"//' -e 's/"$//'`
-
-            DBName=$(aws ssm get-parameters --region us-east-1 --names /ORG/Wordpress/DBName --query Parameters[0].Value)
-            DBName=`echo $DBName | sed -e 's/^"//' -e 's/"$//'`
-
-            # Update the DbEndpoint environment variable
-            DBEndpoint=$(aws ssm get-parameters --region us-east-1 --names /ORG/Wordpress/DBEndpoint --query Parameters[0].Value)
-            DBEndpoint=`echo $DBEndpoint | sed -e 's/^"//' -e 's/"$//'`
-
-            # Take a Backup of the local DB
-            mysqldump -h $DBEndpoint -u $DBUser -p$DBPassword $DBName > orgWordPress.sql
-            
-            # Restore the database export into RDS
-            mysql -h $DBEndpoint -u $DBUser -p$DBPassword $DBName < orgWordPress.sql
-
-            # Change the WordPress config file to use RDS
-            sudo sed -i "s/'localhost'/'$DBEndpoint'/g" /var/www/html/wp-config.php
-
-            # Stop the MariaDB Service
-            sudo systemctl disable mariadb
-            sudo systemctl stop mariadb
       Tags: 
         - Key: Name
           Value: WEBA-WP-1
-
