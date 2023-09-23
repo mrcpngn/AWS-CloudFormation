@@ -466,3 +466,25 @@ Resources:
       Tags: 
         - Key: Name
           Value: WEBA-WP-1
+  EC2InstanceWebWP2:
+    Type: AWS::EC2::Instance
+    DependsOn: WordPressLaunchTemplate
+    Properties:
+      LaunchTemplate: 
+         LaunchTemplateId: !Ref WordPressLaunchTemplate
+         Version: !GetAtt WordPressLaunchTemplate.LatestVersionNumber
+      SubnetId: !Ref SubnetWEBB
+      Tags: 
+        - Key: Name
+          Value: WEBA-WP-2
+  EC2InstanceWebWP3:
+    Type: AWS::EC2::Instance
+    DependsOn: WordPressLaunchTemplate
+    Properties:
+      LaunchTemplate: 
+         LaunchTemplateId: !Ref WordPressLaunchTemplate
+         Version: !GetAtt WordPressLaunchTemplate.LatestVersionNumber
+      SubnetId: !Ref SubnetWEBC
+      Tags: 
+        - Key: Name
+          Value: WEBA-WP-3
